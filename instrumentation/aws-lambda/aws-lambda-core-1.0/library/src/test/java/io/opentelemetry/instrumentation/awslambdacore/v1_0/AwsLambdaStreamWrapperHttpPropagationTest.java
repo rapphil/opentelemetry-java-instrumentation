@@ -98,6 +98,39 @@ public class AwsLambdaStreamWrapperHttpPropagationTest {
   }
 
   @Test
+  @SetEnvironmentVariable(
+      key = "_X_AMZN_TRACE_ID",
+      value = "Root=1-8a3c60f7-d188f8fa79d48a391a778fa6;Parent=0000000000000456;Sampled=1")
+  @SetEnvironmentVariable(key = "OTEL_AWS_LAMBDA_EVENT_TO_CARRIERS", value = "lambda_runtime")
+  void eventToCarrierXray() throws Exception {
+    String content = "{" + "\"body\" : \"hello\"" + "}";
+    InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+    OutputStream output = new ByteArrayOutputStream();
+
+    TracingRequestStreamWrapper wrapper =
+        new TracingRequestStreamWrapper(
+            testing.getOpenTelemetrySdk(), WrappedLambda.fromConfiguration());
+    wrapper.handleRequest(input, output, context);
+
+    testing.waitAndAssertTraces(
+        trace ->
+            trace.hasSpansSatisfyingExactly(
+                span -> {
+                  System.out.println("Investigatin: " + span.asString());
+                  span.hasName("my_function")
+                      .hasKind(SpanKind.SERVER)
+                      .hasTraceId("8a3c60f7d188f8fa79d48a391a778fa6")
+                      .hasParentSpanId("0000000000000456")
+                      .hasAttributesSatisfyingExactly(
+                          equalTo(
+                              ResourceAttributes.CLOUD_RESOURCE_ID,
+                              "arn:aws:lambda:us-east-1:123456789:function:test"),
+                          equalTo(ResourceAttributes.CLOUD_ACCOUNT_ID, "123456789"),
+                          equalTo(SemanticAttributes.FAAS_INVOCATION_ID, "1-22-333"));
+                }));
+  }
+
+  @Test
   void handlerTracedWithException() {
     String content =
         "{"

@@ -52,7 +52,7 @@ dependencies {
   annotationProcessor("com.google.auto.value:auto-value")
 
   implementation("io.opentelemetry.proto:opentelemetry-proto")
-
+  implementation("io.opentelemetry.contrib:opentelemetry-aws-xray-propagator")
   implementation("net.bytebuddy:byte-buddy")
   implementation("ch.qos.logback:logback-classic")
   implementation("org.slf4j:log4j-over-slf4j")

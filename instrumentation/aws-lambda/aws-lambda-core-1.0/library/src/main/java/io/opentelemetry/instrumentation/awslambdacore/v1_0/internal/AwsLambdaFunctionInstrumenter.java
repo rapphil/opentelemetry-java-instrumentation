@@ -11,8 +11,12 @@ import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import io.opentelemetry.instrumentation.api.internal.ContextPropagationDebug;
 import io.opentelemetry.instrumentation.awslambdacore.v1_0.AwsLambdaRequest;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -23,11 +27,29 @@ public class AwsLambdaFunctionInstrumenter {
 
   private final OpenTelemetry openTelemetry;
   final Instrumenter<AwsLambdaRequest, Object> instrumenter;
+  private static final Map<String, EventToCarrier> eventToCarriersMap = new HashMap<>();
+
+  static {
+    eventToCarriersMap.put("lambda_runtime", new LambdaRuntimeXRayEventToCarrier());
+    eventToCarriersMap.put("http_headers", new HeaderEventToCarrier());
+  }
+
+  private final CompositeEventToCarrier compositeEventToCarrier;
 
   public AwsLambdaFunctionInstrumenter(
       OpenTelemetry openTelemetry, Instrumenter<AwsLambdaRequest, Object> instrumenter) {
     this.openTelemetry = openTelemetry;
     this.instrumenter = instrumenter;
+
+    // TODO: can we use the autoconfigure sdk Configuration instead?
+    List<EventToCarrier> carriers =
+        Arrays.stream(
+                System.getenv()
+                    .getOrDefault("OTEL_AWS_LAMBDA_EVENT_TO_CARRIERS", "http_headers")
+                    .split(","))
+            .map(x -> eventToCarriersMap.get(x))
+            .collect(Collectors.toList());
+    this.compositeEventToCarrier = new CompositeEventToCarrier(carriers);
   }
 
   public boolean shouldStart(Context parentContext, AwsLambdaRequest input) {
@@ -48,11 +70,12 @@ public class AwsLambdaFunctionInstrumenter {
 
   public Context extract(AwsLambdaRequest input) {
     ContextPropagationDebug.debugContextLeakIfEnabled();
-
+    Map<String, String> carrier = new HashMap<>();
+    carrier = compositeEventToCarrier.convert(carrier, input);
     return openTelemetry
         .getPropagators()
         .getTextMapPropagator()
-        .extract(Context.root(), input.getHeaders(), MapGetter.INSTANCE);
+        .extract(Context.root(), carrier, MapGetter.INSTANCE);
   }
 
   private enum MapGetter implements TextMapGetter<Map<String, String>> {

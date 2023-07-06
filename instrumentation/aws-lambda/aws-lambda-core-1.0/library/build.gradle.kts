@@ -28,6 +28,7 @@ dependencies {
 
   testImplementation(project(":instrumentation:aws-lambda:aws-lambda-core-1.0:testing"))
   testImplementation("uk.org.webcompere:system-stubs-jupiter")
+  library("com.amazonaws:aws-lambda-java-events:2.2.1")
 }
 
 tasks.withType<Test>().configureEach {

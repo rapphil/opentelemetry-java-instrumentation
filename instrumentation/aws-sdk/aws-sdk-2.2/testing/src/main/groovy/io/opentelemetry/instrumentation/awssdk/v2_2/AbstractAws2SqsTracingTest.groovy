@@ -263,7 +263,7 @@ abstract class AbstractAws2SqsTracingTest extends InstrumentationSpecification {
     resp.messages().size() == 3
 
     // +2: 3 messages, 2x traceparent, 1x not injected due to too many attrs
-    totalAttrs == 18 + (sqsAttributeInjectionEnabled ? 2 : 0)
+    totalAttrs == 20 + (sqsAttributeInjectionEnabled ? 2 : 0)
 
     assertTraces(xrayInjectionEnabled ? 3 : 4) {
       trace(0, 1) {

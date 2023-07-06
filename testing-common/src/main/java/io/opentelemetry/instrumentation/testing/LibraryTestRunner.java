@@ -10,6 +10,8 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.context.propagation.TextMapPropagator;
+import io.opentelemetry.contrib.awsxray.propagator.AwsXrayPropagator;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.common.CompletableResultCode;
@@ -66,7 +68,11 @@ public final class LibraryTestRunner extends InstrumentationTestRunner {
                     .addSpanProcessor(SimpleSpanProcessor.create(testSpanExporter))
                     .build())
             .setMeterProvider(SdkMeterProvider.builder().registerMetricReader(metricReader).build())
-            .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+            // TODO: Provide a way to customize the options.
+            .setPropagators(
+                ContextPropagators.create(
+                    TextMapPropagator.composite(
+                        W3CTraceContextPropagator.getInstance(), AwsXrayPropagator.getInstance())))
             .buildAndRegisterGlobal();
   }
 
